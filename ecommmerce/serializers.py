@@ -8,9 +8,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description']
 
 class ProductSerializer(serializers.ModelSerializer):
-    # Nested serializer for the seller (user) and category
     seller = serializers.SlugRelatedField(slug_field='username', queryset=get_user_model().objects.all())
-    category = CategorySerializer()
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
 
     class Meta:
         model = Product
@@ -31,36 +30,43 @@ class ProductSerializer(serializers.ModelSerializer):
         return value
 
 
+class ProductListSerializer(serializers.ModelSerializer):
+    seller = serializers.SlugRelatedField(slug_field='username', queryset=get_user_model().objects.all())
+    category = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'price', 'seller', 'stock_quantity', 
+            'category', 'created_at', 'updated_at', 'image'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_category(self, obj):
+        return obj.category.name  # Return the category name
+
+    def validate_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Price must be a positive number.")
+        return value
+
+    def validate_stock_quantity(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Stock quantity cannot be negative.")
+        return value
 
 class CartItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    product_price = serializers.DecimalField(
-        source='product.price', 
-        read_only=True, 
-        max_digits=10,  # Define the maximum number of digits
-        decimal_places=2  # Define the number of decimal places
-    )
-    total_price = serializers.DecimalField(
-        source='total_price', 
-        read_only=True, 
-        max_digits=10,  # Define the maximum number of digits
-        decimal_places=2  # Define the number of decimal places
-    )
+    product = ProductSerializer(read_only=True)
 
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_name', 'quantity', 'product_price', 'total_price', 'added_at']
+        fields = ['id', 'product', 'quantity', 'total_price']
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
-    total_price = serializers.DecimalField(
-        source='total_price', 
-        read_only=True, 
-        max_digits=10,  # Define the maximum number of digits
-        decimal_places=2  # Define the number of decimal places
-    )
-    item_count = serializers.IntegerField(source='item_count', read_only=True)
+    total_price = serializers.FloatField(read_only=True)  # Removed source='total_price'
+    item_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Cart
-        fields = ['id', 'user', 'items', 'total_price', 'item_count', 'created_at', 'updated_at', 'is_active']
+        fields = ['id', 'items', 'total_price', 'item_count', 'is_active']

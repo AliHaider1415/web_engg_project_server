@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Product, Category, Cart
-from .serializers import ProductSerializer, CartSerializer
+from .models import Product, Category, Cart, CartItem
+from .serializers import ProductSerializer, ProductListSerializer, CartSerializer
 from accounts.permissions import isUserAuthenticated, isGuestAuthenticated, isGuestOrUserAuthenticated
 
 
@@ -18,6 +18,7 @@ class UserProductsListView(APIView):
 
     def get(self, request):
         try:
+
             # Fetching all products related to the current authenticated user
             products = Product.objects.filter(seller=request.user)
 
@@ -64,7 +65,7 @@ class UserProductsListView(APIView):
                 )
 
             # Serializing the filtered products
-            serializer = ProductSerializer(products, many=True)
+            serializer = ProductListSerializer(products, many=True)
 
             # Return the serialized data in the response
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -80,11 +81,23 @@ class UserProductsListView(APIView):
         try:
             # Set the seller to the currently authenticated user
             data = request.data.copy()
-            data['seller'] = request.user.id
+            data['seller'] = request.user  # Use the user's ID, not the object
+
+            # Check if category exists, if not, create it
+            category_name = data.get('category', None)
+            
+            if category_name:
+                # Ensure that category is retrieved or created
+                category, created = Category.objects.get_or_create(name=category_name)
+                data['category'] = category.id  # Use the category ID for the ForeignKey
+            else:
+                return Response({"error": "Category is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            print("Data: ", data)  # Debugging step
 
             # Serializing the incoming data
             serializer = ProductSerializer(data=data)
-            
+
             if serializer.is_valid():
                 # Save the product if the data is valid
                 product = serializer.save()
@@ -96,7 +109,7 @@ class UserProductsListView(APIView):
                     {"error": serializer.errors},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        
+
         except Exception as e:
             # Handle any unforeseen exceptions
             return Response(
@@ -238,7 +251,7 @@ class GuestProductsView(APIView):
                 )
 
             # Serializing the filtered products
-            serializer = ProductSerializer(products, many=True)
+            serializer = ProductListSerializer(products, many=True)
 
             # Return the serialized data in the response
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -295,29 +308,116 @@ class GuestProductsView(APIView):
 #             )
 
 
-class CartDetailView(APIView):
+# class CartDetailView(APIView):
+#     """
+#     View to retrieve the cart and its items for the authenticated user.
+#     """
+#     permission_classes = [isGuestOrUserAuthenticated]
+#     authentication_classes = [JWTAuthentication]
+
+#     def get(self, request):
+#         try:
+#             # Fetch the user's active cart
+#             cart = Cart.objects.filter(user=request.user, is_active=True).first()
+
+#             # If no active cart is found
+#             if not cart:
+#                 return Response(
+#                     {"message": "No active cart found for this user."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#             # Serialize the cart and its items
+#             serializer = CartSerializer(cart)
+
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+
+class CartItemsView(APIView):
     """
-    View to retrieve the cart and its items for the authenticated user.
+    View to manage cart items for the authenticated user.
     """
-    permission_classes = [isGuestOrUserAuthenticated]
+    permission_classes = [IsAuthenticated, isGuestOrUserAuthenticated]
     authentication_classes = [JWTAuthentication]
 
     def get(self, request):
+        """
+        Get all cart items for the authenticated user.
+        """
         try:
-            # Fetch the user's active cart
-            cart = Cart.objects.filter(user=request.user, is_active=True).first()
-
-            # If no active cart is found
-            if not cart:
-                return Response(
-                    {"message": "No active cart found for this user."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            # Serialize the cart and its items
+            cart, _ = Cart.objects.get_or_create(user=request.user, is_active=True)
             serializer = CartSerializer(cart)
-
             return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def post(self, request):
+        """
+        Add a product to the cart.
+        """
+        try:
+            product_id = request.data.get('product_id')
+            quantity = request.data.get('quantity', 1)
+
+            if not product_id:
+                return Response({"error": "Product ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            product = Product.objects.get(id=product_id)
+            cart, _ = Cart.objects.get_or_create(user=request.user, is_active=True)
+
+            cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+            if not created:
+                cart_item.quantity += quantity
+            else:
+                cart_item.quantity = quantity
+            cart_item.save()
+
+            return Response({"message": "Product added to cart."}, status=status.HTTP_201_CREATED)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def put(self, request):
+        """
+        Update the quantity of a cart item.
+        """
+        try:
+            cart_item_id = request.data.get('cart_item_id')
+            quantity = request.data.get('quantity')
+
+            if not cart_item_id or not quantity:
+                return Response({"error": "Cart item ID and quantity are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            cart_item = CartItem.objects.get(id=cart_item_id, cart__user=request.user, cart__is_active=True)
+            cart_item.quantity = quantity
+            cart_item.save()
+
+            return Response({"message": "Cart item updated."}, status=status.HTTP_200_OK)
+        except CartItem.DoesNotExist:
+            return Response({"error": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request):
+        """
+        Remove a product from the cart.
+        """
+        try:
+            cart_item_id = request.data.get('cart_item_id')
+
+            if not cart_item_id:
+                return Response({"error": "Cart item ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            cart_item = CartItem.objects.get(id=cart_item_id, cart__user=request.user, cart__is_active=True)
+            cart_item.delete()
+
+            return Response({"message": "Cart item removed."}, status=status.HTTP_200_OK)
+        except CartItem.DoesNotExist:
+            return Response({"error": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

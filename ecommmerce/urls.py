@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserProductsListView, GuestProductsView, ProductDetailView
+from .views import UserProductsListView, GuestProductsView, ProductDetailView, CartItemsView
 
 urlpatterns = [
     # URL for fetching all blogs or filtering user blogs
@@ -12,6 +12,9 @@ urlpatterns = [
 
     # URL for all guest blogs
     path('guest-products/', GuestProductsView.as_view(), name='guest-products-list'),  # GET and POST methods
+
+
+    path('cart/', CartItemsView.as_view(), name='cart-items'),
 
 
     # path('blogs-count/', BlogsCountView.as_view(), name='blogs-count'),
