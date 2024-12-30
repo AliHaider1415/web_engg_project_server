@@ -3,10 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Blog
+from .models import Blog, Comment
 from django.db.models import Count
-from .serializers import BlogSerializer, UserBlogListSerializer
+from .serializers import BlogSerializer, UserBlogListSerializer, CommentSerializer
 from accounts.permissions import isUserAuthenticated, isGuestAuthenticated, isGuestOrUserAuthenticated
+from django.shortcuts import get_object_or_404
 
 
 
@@ -285,3 +286,37 @@ class BlogsCountView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class BlogCommentView(APIView):
+    """
+    View to handle comments for a specific blog post.
+    Allows fetching all comments and creating a new comment.
+    """
+    permission_classes = [IsAuthenticated, isGuestOrUserAuthenticated]
+
+    def get(self, request, blog_id):
+        """
+        Get all comments for a specific blog post.
+        """
+
+        blog = get_object_or_404(Blog, id=blog_id)
+        comments = Comment.objects.filter(blog=blog).order_by('-created_at')
+        serializer = CommentSerializer(comments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, blog_id):
+        """
+        Create a new comment for a specific blog post.
+        """
+        blog = get_object_or_404(Blog, id=blog_id)
+
+        request.data['author_id'] = request.user.id
+        # Deserialize the incoming data
+        serializer = CommentSerializer(data=request.data)
+
+        # Validate and save the comment
+        if serializer.is_valid():
+            serializer.save(blog=blog, author=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

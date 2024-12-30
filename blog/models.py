@@ -42,3 +42,29 @@ class Blog(models.Model):
     def get_excerpt(self):
         """Method to get a short preview of the blog content."""
         return self.content[:100] + '...' if len(self.content) > 100 else self.content
+
+
+
+class Comment(models.Model):
+    blog = models.ForeignKey(
+        Blog, 
+        on_delete=models.CASCADE, 
+        related_name="comments", 
+        verbose_name=_("Blog")
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        verbose_name=_("Author")
+    )
+    content = models.TextField(verbose_name=_("Content"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _("Comment")
+        verbose_name_plural = _("Comments")
+
+    def __str__(self):
+        return f"Comment by {self.author} on {self.blog.title}"

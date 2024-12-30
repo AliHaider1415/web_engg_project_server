@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserBlogsListView, GuestBlogsView, BlogsDetailView, BlogsCountView
+from .views import UserBlogsListView, GuestBlogsView, BlogsDetailView, BlogsCountView, BlogCommentView
 
 urlpatterns = [
     # URL for fetching all blogs or filtering user blogs
@@ -15,4 +15,6 @@ urlpatterns = [
 
 
     path('blogs-count/', BlogsCountView.as_view(), name='blogs-count'),
+
+    path('blogs/<int:blog_id>/comments/', BlogCommentView.as_view(), name='blog-comments'),
 ]
