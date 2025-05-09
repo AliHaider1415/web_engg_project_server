@@ -30,6 +30,10 @@ class BlogSerializer(serializers.ModelSerializer):
         # Return the username of the author
         return obj.author.username if obj.author else None
     
+    def create(self, validated_data):
+        validated_data['author'] = self.context['request'].user
+        return super().create(validated_data)
+    
 class UserBlogListSerializer(serializers.ModelSerializer):
 
     # Customizing the author field to return author.username

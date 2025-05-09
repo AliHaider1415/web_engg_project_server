@@ -1,0 +1,6 @@
+# .coveragerc
+[run]
+omit =
+    */migrations/*
+    */tests/*
+    */settings/*

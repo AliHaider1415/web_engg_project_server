@@ -58,15 +58,9 @@ class UserBlogsListView(APIView):
 
     def post(self, request):
         try:
-            # Set the author to the currently authenticated user
-            data = request.data.copy()
-            
-            data['author'] = request.user.id
-
-            print("User: ", request.user)
 
             # Serializing the incoming data
-            serializer = BlogSerializer(data=data)
+            serializer = BlogSerializer(data=request.data, context={"request": request})
             
             if serializer.is_valid():
                 # Save the blog if the data is valid
@@ -81,6 +75,7 @@ class UserBlogsListView(APIView):
                 )
         
         except Exception as e:
+            print("Error: ", str(e))
             # Handle any unforeseen exceptions
             return Response(
                 {"error": str(e)},
@@ -310,9 +305,10 @@ class BlogCommentView(APIView):
         """
         blog = get_object_or_404(Blog, id=blog_id)
 
-        request.data['author_id'] = request.user.id
+        data = request.data.copy()
+        data["author"] = request.user.id 
         # Deserialize the incoming data
-        serializer = CommentSerializer(data=request.data)
+        serializer = CommentSerializer(data=data)
 
         # Validate and save the comment
         if serializer.is_valid():
