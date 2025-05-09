@@ -37,7 +37,7 @@ jobs:
 
     - name: Upload test results (Optional)
       if: success()  # Upload test results only if tests pass
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: /path/to/test/results  # Optional: Path to store your test results if you are generating a results file (like JUnit)
