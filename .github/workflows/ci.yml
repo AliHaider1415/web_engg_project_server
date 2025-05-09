@@ -40,7 +40,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: /path/to/test/results  # Optional: Path to store your test results if you are generating a results file (like JUnit)
+        path: htmlcov/ # Optional: Path to store your test results if you are generating a results file (like JUnit)
 
     - name: Upload coverage report
       if: success()  # Upload coverage report only if tests pass
