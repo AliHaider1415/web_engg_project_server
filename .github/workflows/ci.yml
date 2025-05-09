@@ -44,7 +44,7 @@ jobs:
 
     - name: Upload coverage report
       if: success()  # Upload coverage report only if tests pass
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report  # The name of the uploaded artifact
         path: htmlcov/  # The path to the directory containing the coverage report
